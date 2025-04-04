@@ -44,7 +44,7 @@ body.dark-mode {
 /* Navbar Styles */
 .navbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: space-evenly;  /* Spread items evenly */
     align-items: center;
     padding: 1rem 2rem;
     background-color: #4A4E69;
@@ -57,15 +57,23 @@ body.dark-mode {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
+/* Logo */
 .logo {
     font-size: 1.5rem;
     font-weight: bold;
 }
 
+/* Navigation Links */
 .nav-links {
     display: flex;
     gap: 2rem;
     list-style: none;
+}
+
+/* Ensure links are aligned properly */
+.nav-links li {
+    display: flex;
+    align-items: center;
 }
 
 .nav-links a {
@@ -81,6 +89,7 @@ body.dark-mode {
     color: #22223B;
 }
 
+
 /* Main Content */
 .main-content {
     margin-top: 80px;
@@ -95,6 +104,7 @@ body.dark-mode {
     align-items: center;
     padding: 2rem;
     gap: 2rem;
+    margin-top: 80px; /* Push section down below navbar */
 }
 
 .section h1 {

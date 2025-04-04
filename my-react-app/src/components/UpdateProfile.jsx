@@ -1,85 +1,164 @@
-// src/components/UpdateProfile.jsx
-import React, { useState } from 'react';
-import '../assets/user/user_update.css';
-import profileImg from '../assets/user/welcome.jpg';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import profileImg from "../assets/user/welcome.jpg";
 
 const UpdateProfile = () => {
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch("http://localhost:4000/api/auth/user", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch user profile");
+
+        const data = await response.json();
+        setFormData({
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          address: data.address || "",
+        });
+      } catch (error) {
+        setErrorMessage(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [token]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const updateData = Object.fromEntries(
+      Object.entries(formData).filter(([_, value]) => value !== undefined && value !== "")
+    );
+
+    if (Object.keys(updateData).length === 0) {
+      alert("No changes detected.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:4000/api/auth/update-profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok) {
+        alert(resData.message || "Update failed. Please try again.");
+        return;
+      }
+
+      alert("Profile updated successfully!");
+      setTimeout(() => navigate("/dashboard"), 1000);
+    } catch (error) {
+      alert("Something went wrong. Please try again.");
+    }
+  };
+
+  if (isLoading) return <p>Loading...</p>;
+  if (errorMessage) return <p className="error">{errorMessage}</p>;
 
   return (
-    <div className="user-update-container">
-      <div className="header">
-        <h2>Update Your Profile</h2>
-        <p>Keep your information up to date for better communication and security.</p>
+    <div className="flex flex-col items-center p-6 bg-gray-100 rounded-lg shadow-lg w-full max-w-lg mx-auto">
+      <h2 className="text-2xl font-semibold mb-2">Update Your Profile</h2>
+      <p className="text-gray-500 mb-4">Keep your information up to date for better communication and security.</p>
+
+      <div className="flex flex-col items-center">
+        <img 
+          src={profileImg} 
+          alt="User Profile" 
+          className="rounded-full mb-4 object-cover" 
+          style={{ width: "100px", height: "100px" }} 
+        />
       </div>
 
-      <div className="user-update-info">
-        <div className="user-profile">
-          <img src={profileImg} alt="User Profile Picture" className="profile-img" />
-          <div className="upload-overlay">
-            <i className="fas fa-camera"></i>
-            <span>Change Photo</span>
-          </div>
+      <form className="w-full" onSubmit={handleSubmit}>
+        <div className="mb-3">
+          <label className="block font-medium">Name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full p-2 border rounded-lg"
+            required
+          />
         </div>
 
-        <form className="update-form">
-          <div className="form-group">
-            <label htmlFor="name">Name</label>
-            <input type="text" id="name" name="name" defaultValue="John Doe" required />
-          </div>
+        <div className="mb-3">
+          <label className="block font-medium">Mobile Number</label>
+          <input
+            type="text"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            className="w-full p-2 border rounded-lg"
+            required
+          />
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="contact">Mobile Number</label>
-            <input type="text" id="contact" name="contact" defaultValue="+91 9876543210" required />
-          </div>
+        <div className="mb-3">
+          <label className="block font-medium">Email</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full p-2 border rounded-lg"
+            required
+            disabled
+          />
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input type="email" id="email" name="email" defaultValue="johndoe@example.com" required />
-          </div>
+        <div className="mb-3">
+          <label className="block font-medium">Permanent Address</label>
+          <textarea
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="w-full p-2 border rounded-lg"
+            required
+          ></textarea>
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="address">Permanent Address</label>
-            <textarea id="address" name="address" required>1234 Elm Street, City, State, ZIP</textarea>
-          </div>
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg w-full mt-2 hover:bg-blue-600">
+          Save Changes
+        </button>
+      </form>
 
-          <div className="form-group">
-            <label htmlFor="password">New Password</label>
-            <div className="password-input">
-              <input
-                type={passwordVisible ? 'text' : 'password'}
-                id="password"
-                name="password"
-                placeholder="Enter new password"
-                required
-              />
-              <i className={`fas ${passwordVisible ? 'fa-eye-slash' : 'fa-eye'}`} onClick={() => setPasswordVisible(!passwordVisible)}></i>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="confirm-password">Confirm Password</label>
-            <div className="password-input">
-              <input
-                type={confirmPasswordVisible ? 'text' : 'password'}
-                id="confirm-password"
-                name="confirm-password"
-                placeholder="Confirm new password"
-                required
-              />
-              <i className={`fas ${confirmPasswordVisible ? 'fa-eye-slash' : 'fa-eye'}`} onClick={() => setConfirmPasswordVisible(!confirmPasswordVisible)}></i>
-            </div>
-          </div>
-
-          <button type="submit" className="save-btn">
-            <i className="fas fa-save"></i> Save Changes
-          </button>
-        </form>
-      </div>
-
-      <button className="back-btn" onClick={() => window.history.back()}>
-        <i className="fas fa-arrow-left"></i> Back
+      <button
+        className="mt-4 text-gray-600 hover:text-gray-900"
+        onClick={() => navigate(-1)}
+      >
+        ← Back
       </button>
     </div>
   );

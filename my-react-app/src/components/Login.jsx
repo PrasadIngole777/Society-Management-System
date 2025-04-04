@@ -1,6 +1,7 @@
-// src/components/Login.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import '../assets/login/login.css';
 import img1 from '../assets/login/img1.jpg';
 import img2 from '../assets/login/img2.jpg';
@@ -11,9 +12,10 @@ const Login = () => {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [captchaInput, setCaptchaInput] = useState('');
-  const [notification, setNotification] = useState({ message: '', type: '' });
-
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const carouselImages = [img1, img2, img3];
   const intervalRef = useRef(null);
 
@@ -27,32 +29,92 @@ const Login = () => {
     setActiveSlide((index + carouselImages.length) % carouselImages.length);
   };
 
-  const handleLogin = async (e) => {
+  const storeTokenInLS = (token) => {
+    localStorage.setItem("token", token);
+  };
+
+  const handleUserLogin = async (e) => {
     e.preventDefault();
-    if (isAdmin && captchaInput.trim() !== '8') {
-      return showNotification('Incorrect CAPTCHA answer. Please try again.', 'error');
+
+    if (!userEmail || !userPassword) {
+      toast.error("Email and Password are required!");
+      return;
     }
-    showNotification('Login successful! Redirecting...', 'success');
-    setTimeout(() => {
-      if (isAdmin) {
-        navigate('/admin');
+
+    try {
+      const response = await fetch(`http://localhost:4000/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, password: userPassword }),
+      });
+
+      const res_data = await response.json();
+
+      if (response.ok) {
+        storeTokenInLS(res_data.token);
+        toast.success("Login Successful!");
+        
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
       } else {
-        navigate('/dashboard');
+        toast.error(res_data.extraDetails || res_data.message);
       }
-    }, 1500);
+    } catch (error) {
+      console.error("Login Error:", error);
+      toast.error("Something went wrong. Please try again.");
+    }
   };
 
-  const showNotification = (message, type) => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification({ message: '', type: '' }), 3000);
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+  
+    if (!adminEmail || !adminPassword) {
+      toast.error("Admin Email and Password are required!");
+      return;
+    }
+  
+    try {
+      const response = await fetch(`http://localhost:4000/api/admin/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+      });
+  
+      const res_data = await response.json();
+      console.log("Response Data:", res_data);
+  
+      // Check if the request was successful
+      if (!response.ok) {
+        toast.error(res_data.message || "Invalid credentials");
+        return;
+      }
+  
+      // Ensure res_data.isAdmin exists before checking
+      if (res_data.isAdmin === false) {
+        toast.error("Not an admin");
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+        return;
+      }
+  
+      // If admin, navigate to the admin panel
+      toast.success("Admin Login Successful!");
+      storeTokenInLS(res_data.token);
+      setTimeout(() => {
+        navigate('/admin');
+      }, 1500);
+    } catch (error) {
+      console.error("Admin Login Error:", error);
+      toast.error("Something went wrong. Please try again.");
+    }
   };
-
-  const togglePassword = (e) => {
-    const input = e.target.previousElementSibling;
-    input.type = input.type === 'password' ? 'text' : 'password';
-    e.target.classList.toggle('fa-eye');
-    e.target.classList.toggle('fa-eye-slash');
-  };
+  
 
   return (
     <>
@@ -89,23 +151,16 @@ const Login = () => {
 
           {/* User Form */}
           {!isAdmin && (
-            <form className="form-container active" onSubmit={handleLogin}>
+            <form className="form-container active" onSubmit={handleUserLogin}>
               <div className="input-group">
-                <input type="email" required placeholder=" " />
+                <input type="email" required placeholder="Email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} />
                 <label>Email Address</label>
                 <i className="fas fa-envelope"></i>
               </div>
               <div className="input-group">
-                <input type="password" required placeholder=" " />
+                <input type="password" required placeholder="Password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} />
                 <label>Password</label>
-                <i className="fas fa-eye-slash toggle-password" onClick={togglePassword}></i>
-              </div>
-
-              <div className="additional-options">
-                <label className="remember-me">
-                  <input type="checkbox" /> Remember me
-                </label>
-                <a href="/forgot-password" className="forgot-password">Forgot Password?</a>
+                <i className="fas fa-eye-slash toggle-password"></i>
               </div>
 
               <button type="submit" className="submit-btn">
@@ -117,21 +172,18 @@ const Login = () => {
 
           {/* Admin Form */}
           {isAdmin && (
-            <form className="form-container active" onSubmit={handleLogin}>
+            <form className="form-container active" onSubmit={handleAdminLogin}>
               <div className="input-group">
-                <input type="text" required placeholder=" " />
-                <label>Admin ID</label>
+                <input type="email" required placeholder="Admin Email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
+                <label>Admin Email</label>
                 <i className="fas fa-id-card"></i>
               </div>
               <div className="input-group">
-                <input type="password" required placeholder=" " />
+                <input type="password" required placeholder="Password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} />
                 <label>Password</label>
-                <i className="fas fa-eye-slash toggle-password" onClick={togglePassword}></i>
+                <i className="fas fa-eye-slash toggle-password"></i>
               </div>
-              <div className="captcha">
-                <span>3 + 5 = </span>
-                <input type="text" placeholder="Answer" value={captchaInput} onChange={(e) => setCaptchaInput(e.target.value)} />
-              </div>
+
               <button type="submit" className="submit-btn">
                 <span className="btn-text">Admin Login</span>
                 <div className="loader"></div>
@@ -144,10 +196,6 @@ const Login = () => {
           </div>
         </div>
       </div>
-
-      {notification.message && (
-        <div className={`notification ${notification.type}`}>{notification.message}</div>
-      )}
     </>
   );
 };

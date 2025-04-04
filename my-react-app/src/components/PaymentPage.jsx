@@ -1,5 +1,5 @@
 // src/components/PaymentPage.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/user/payment.css';
 import QR from '../assets/user/QR.png';
@@ -9,15 +9,50 @@ const PaymentPage = () => {
   const [showQR, setShowQR] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('upi');
-  const [amount, setAmount] = useState('500.00');
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [amount, setAmount] = useState(null); // Fix: Initialize as null
   const [paymentStatus, setPaymentStatus] = useState('pending');
-
+  const [token] = useState(localStorage.getItem("token"));
+  const [cardDetails, setcardDetails] = useState([]);
+ // const [showReceipt, setShowReceipt] = useState(false);
   const paymentMethods = [
     { id: 'upi', name: 'UPI', icon: 'fas fa-mobile-alt' },
     { id: 'card', name: 'Card', icon: 'fas fa-credit-card' },
     { id: 'netbanking', name: 'Net Banking', icon: 'fas fa-university' },
     { id: 'wallet', name: 'Wallet', icon: 'fas fa-wallet' }
   ];
+
+  useEffect(() => {
+    const fetchPaymentData = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/api/auth/user/maintainance/payment', {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        console.log("Fetched Payment Data:", data); // Debugging
+        setAmount(data);
+      } catch (error) {
+        setErrorMessage(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPaymentData();
+  }, [token]);
+
+  useEffect(() => {
+    console.log("Updated amount:", amount); // Debugging
+  }, [amount]);
 
   const handleShowQR = () => {
     setShowQR(true);
@@ -60,8 +95,14 @@ const PaymentPage = () => {
           <h2>Payment Summary</h2>
           <div className="summary-details">
             <div className="summary-item">
-              <span>Amount to Pay</span>
-              <span className="amount">₹{amount}</span>
+              <span>FineAmount </span>
+              <span className="amount">
+                {amount ? `₹${amount.fine_amount}` : 'Loading...'}
+              </span><br />
+              <span>Total Amount </span>
+              <span className="amount">
+                {amount ? `₹${amount.total_amount}` : 'Loading...'}
+              </span>
             </div>
             <div className="summary-item">
               <span>Payment Status</span>
@@ -69,7 +110,7 @@ const PaymentPage = () => {
             </div>
             <div className="summary-item">
               <span>Due Date</span>
-              <span>25th October 2023</span>
+              <span>{amount ? amount.due_date : 'Loading...'}</span>
             </div>
           </div>
         </div>
@@ -107,7 +148,7 @@ const PaymentPage = () => {
                   <div className="qr-instructions">
                     <p>1. Open your UPI app</p>
                     <p>2. Scan this QR code</p>
-                    <p>3. Enter the amount: ₹{amount}</p>
+                    <p>3. Enter the amount: ₹{amount ? amount.total_amount : "Loading..."}</p>
                     <p>4. Complete the payment</p>
                   </div>
                 </div>
@@ -133,39 +174,8 @@ const PaymentPage = () => {
                     <input type="text" placeholder="123" />
                   </div>
                 </div>
-                <button type="submit" className="pay-btn">Pay ₹{amount}</button>
+                <button type="submit" className="pay-btn">Pay ₹{amount ? amount.total_amount : "Loading..."}</button>
               </form>
-            </div>
-          )}
-
-          {selectedMethod === 'netbanking' && (
-            <div className="netbanking-options">
-              <h2>Select Bank</h2>
-              <div className="bank-list">
-                <div className="bank-option">
-                  <img src="https://via.placeholder.com/40" alt="Bank" />
-                  <span>State Bank of India</span>
-                </div>
-                <div className="bank-option">
-                  <img src="https://via.placeholder.com/40" alt="Bank" />
-                  <span>HDFC Bank</span>
-                </div>
-                <div className="bank-option">
-                  <img src="https://via.placeholder.com/40" alt="Bank" />
-                  <span>ICICI Bank</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedMethod === 'wallet' && (
-            <div className="wallet-payment">
-              <h2>Wallet Payment</h2>
-              <div className="wallet-balance">
-                <span>Available Balance</span>
-                <span className="balance">₹1,000.00</span>
-              </div>
-              <button className="pay-btn">Pay with Wallet</button>
             </div>
           )}
         </div>
@@ -187,7 +197,7 @@ const PaymentPage = () => {
               </div>
               <div className="receipt-item">
                 <span>Amount</span>
-                <span>₹{amount}</span>
+                <span>₹{amount ? amount.fine_amount : "Loading..."}</span>
               </div>
               <div className="receipt-item">
                 <span>Status</span>
@@ -195,9 +205,6 @@ const PaymentPage = () => {
               </div>
             </div>
             <div className="receipt-actions">
-              <button className="download-receipt-btn">
-                <i className="fas fa-download"></i> Download Receipt
-              </button>
               <button className="close-receipt-btn" onClick={closeReceipt}>
                 <i className="fas fa-home"></i> Back to Dashboard
               </button>

@@ -3,48 +3,105 @@ import { useNavigate } from 'react-router-dom';
 import '../assets/user/user.css';
 import welcomeImg from '../assets/user/welcome.jpg';
 import { Chart } from 'chart.js/auto';
+import LogoutButton from './Logout';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
   const maintenanceChartRef = useRef(null);
   const chartInstance = useRef(null);
-  const [maintenanceData, setMaintenanceData] = useState({
-    totalAvailable: '₹ 500,000',
-    totalPending: '₹ 50,000',
-    totalUsed: '₹ 450,000',
-    userStatus: 'Paid',
-    userPending: 500,
-    charge: '₹ 0'
-  });
+  const [token] = useState(localStorage.getItem("token"));
+  const [selfmaintainData, setselfMaintainData] = useState({});
+  const [wholemaintainData, setwholeMaintainData] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(
+    localStorage.getItem("selectedMonth") || "" // Load from localStorage if available
+  );
 
-  const updateMaintenanceDetails = (month) => {
-    const data = {
-      jan: { totalAvailable: '₹ 500,000', totalPending: '₹ 50,000', totalUsed: '₹ 450,000', userStatus: 'Paid', userPending: 500 },
-      feb: { totalAvailable: '₹ 520,000', totalPending: '₹ 45,000', totalUsed: '₹ 475,000', userStatus: 'Not Paid', userPending: 600 },
-      mar: { totalAvailable: '₹ 480,000', totalPending: '₹ 60,000', totalUsed: '₹ 420,000', userStatus: 'Paid', userPending: 0 },
-      // Add other months...
+  const monthList = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  // Load selectedMonth from localStorage on mount
+  useEffect(() => {
+    const savedMonth = localStorage.getItem("selectedMonth");
+    if (savedMonth) {
+      setSelectedMonth(savedMonth);
+    }
+  }, []);
+
+  // Fetch Individual User Maintenance Data
+  useEffect(() => {
+    const fetchUserMaintainData = async () => {
+      if (!token) return;
+  
+      try {
+        const response = await fetch('http://localhost:4000/api/auth/user/maintainance', {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+  
+        if (!response.ok) throw new Error('Failed to fetch user data');
+  
+        const data = await response.json();
+        setselfMaintainData(data);
+      } catch (error) {
+        console.error("Error fetching user maintenance data:", error);
+      }
     };
-    setMaintenanceData(data[month]);
+  
+    fetchUserMaintainData();
+  }, [token]);
+
+  // Fetch Society-wide Maintenance Data based on Selected Month
+  useEffect(() => {
+    if (!selectedMonth) return;
+  
+    const fetchWholeMaintainData = async () => {
+      try {
+        const response = await fetch(`http://localhost:4000/api/auth/maintainances?month=${selectedMonth}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        if (!response.ok) throw new Error('Failed to fetch society data');
+  
+        const data = await response.json();
+        setwholeMaintainData(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching maintenance data:", error);
+        setwholeMaintainData([]);
+      }
+    };
+  
+    fetchWholeMaintainData();
+  }, [selectedMonth, token]);
+
+  // Function to update selectedMonth and persist it
+  const handleMonthChange = (month) => {
+    setSelectedMonth(month);
+    localStorage.setItem("selectedMonth", month);
   };
 
+  // Cleanup chart on component unmount
   useEffect(() => {
-    // Cleanup function to destroy the chart when component unmounts or re-renders
     return () => {
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-      }
+      if (chartInstance.current) chartInstance.current.destroy();
     };
   }, []);
 
+  // Initialize Chart.js
   useEffect(() => {
+    if (!maintenanceChartRef.current) return;
+
     const ctx = maintenanceChartRef.current.getContext('2d');
 
-    // Destroy existing chart if it exists
     if (chartInstance.current) {
       chartInstance.current.destroy();
     }
 
-    // Create new chart
     chartInstance.current = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -52,82 +109,80 @@ const UserDashboard = () => {
         datasets: [{
           label: 'Maintenance Requests',
           data: [12, 19, 3, 5, 2, 3],
-          backgroundColor: [
-            'rgba(255, 99, 132, 0.2)',
-            'rgba(54, 162, 235, 0.2)',
-            'rgba(255, 206, 86, 0.2)',
-            'rgba(75, 192, 192, 0.2)',
-            'rgba(153, 102, 255, 0.2)',
-            'rgba(255, 159, 64, 0.2)'
-          ],
-          borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(153, 102, 255, 1)',
-            'rgba(255, 159, 64, 1)'
-          ],
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1
         }]
       },
       options: {
         responsive: true,
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
+        scales: { y: { beginAtZero: true } }
       }
     });
 
-    // Cleanup function for this effect
     return () => {
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-      }
+      if (chartInstance.current) chartInstance.current.destroy();
     };
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   return (
     <div>
-      <nav className="navbar">
-        <div className="logo">SocietyApp</div>
+       <nav class="navbar">
+        <div class="logo">MyBrand</div>
+        <input type="checkbox" id="menu-toggle" class="menu-toggle"/>
+        <label for="menu-toggle" class="hamburger">&#9776;</label>
         <ul className="nav-links">
           <li><a href="#home">Home</a></li>
           <li><a href="#maintenance_contener">Maintenance</a></li>
           <li><a href="/events">Events</a></li>
+
+
         </ul>
-        <button id="dark-mode-toggle"><i className="fas fa-moon"></i></button>
-      </nav>
+    </nav>
+
+      <LogoutButton />
 
       <section id="home" className="section">
-        <h1>Hey Prasad Ingole<br />Management System</h1>
+        <h1>Hi, {selfmaintainData.username} <br /> Welcome to Society Management System <br /> AKA [SMS]</h1>
         <img src={welcomeImg} alt="Society" />
       </section>
 
       <div className="maintenance_contener" id="maintenance_contener">
         <label htmlFor="month-select">Select Month</label>
-        <select id="month-select" onChange={(e) => updateMaintenanceDetails(e.target.value)}>
-          <option value="jan">January</option>
-          <option value="feb">February</option>
-          <option value="mar">March</option>
+        <select
+          id="month-select"
+          value={selectedMonth}
+          onChange={(e) => handleMonthChange(e.target.value)} // ✅ FIXED HERE
+        >
+          <option value="">-- Select Month --</option>
+          {monthList.map((month) => (
+            <option key={month} value={month}>{month}</option>
+          ))}
         </select>
 
         <div className="society_maintenance_contener">
           <h1>Maintenance Details of Whole Society</h1>
-          <div className="total_available"><p>Total Available Funds</p><span>{maintenanceData.totalAvailable}</span></div>
-          <div className="total_pending"><p>Total Pending Dues</p><span>{maintenanceData.totalPending}</span></div>
-          <div className="total_used"><p>Total Used Funds</p><span>{maintenanceData.totalUsed}</span></div>
+          <div className="total_available">
+            <p>Total Available Funds</p>
+            <span>
+              ₹{wholemaintainData.length > 0 
+                ? wholemaintainData.reduce((sum, user) => sum + (user.total_amount || 0), 0)
+                : 0}  
+            </span>
+          </div>
+          <div className="Fine amount"><p>Fine Amount</p><span>₹{wholemaintainData.fine_amount}</span></div>
+          <div className="Pending Amount"><p>Total Amount</p><span>₹{wholemaintainData.total_amount}</span></div>
         </div>
 
         <div className="user_maintenance_contener">
           <h1>Maintenance Details of your Flat</h1>
-          <div className="user_status"><p>Status: {maintenanceData.userStatus}</p><span>₹ 2,000</span></div>
-          <div className="user_pending"><p>Pending Amount</p><span>₹ {maintenanceData.userPending}</span></div>
-          <div className="charge"><p>Charge</p><span>{maintenanceData.charge}</span></div>
+          <div className="user_status"><p>Status:</p> <strong>{selfmaintainData.status}</strong></div>
+          <div className="charge"><p>Fine Amount</p><span>₹{selfmaintainData.fine_amount}</span></div>
+          <div className="user_pending"><p>Total Amount</p><span>₹{selfmaintainData.total_amount}</span></div>
         </div>
-        <button className="open-details-btn" onClick={() => navigate('/details')}>Open Details</button>
+
+        <button className="open-details-btn" onClick={() => navigate('/details')}>Profile Details</button>
+        <button className="open-details-btn" onClick={() => navigate('/maintainanace')}>Maintenance Details</button>
         <button className="payment-btn" onClick={() => navigate('/payment')}>Proceed to Payment</button>
       </div>
 
